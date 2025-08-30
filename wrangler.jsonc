@@ -1,50 +1,74 @@
 /**
- * For more details on how to configure Wrangler, refer to:
- * https://developers.cloudflare.com/workers/wrangler/configuration/
+ * ShieldGuard - Basic DDoS Protection Worker
+ * 
+ * Wrangler configuration for Cloudflare Workers.
+ * For more details: https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "edge-computing",
+	"name": "shieldguard",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-08-30",
 	"compatibility_flags": [
 		"global_fetch_strictly_public"
 	],
-	"assets": {
-		// The path to the directory containing the `index.html` file to be served at `/`
-		"directory": "./public"
-	},
 	"observability": {
 		"enabled": true
-	}
+	},
 	/**
-	 * Smart Placement
-	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 * KV Namespaces for data storage
+	 * - IP_REPUTATION: Store IP reputation scores
+	 * - ATTACK_LOGS: Store attack logs
+	 * - RATE_LIMITS: Store rate limiting data
 	 */
-	// "placement": { "mode": "smart" }
+	"kv_namespaces": [
+		{
+			"binding": "IP_REPUTATION",
+			"id": "e934140f7c70481fa1cf69133d9b5dfe"
+		},
+		{
+			"binding": "ATTACK_LOGS", 
+			"id": "2ef089465b4f4330ba6a874dbc8a2e04"
+		},
+		{
+			"binding": "RATE_LIMITS",
+			"id": "7bc7d5407d6d4f4891976d8759328323"
+		}
+	],
 	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-	 */
-	/**
-	 * Environment Variables
+	 * Environment variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
-	// "vars": { "MY_VARIABLE": "production_value" }
+	"vars": {
+		"APP_NAME": "ShieldGuard",
+		"APP_VERSION": "1.0.0",
+		"ENVIRONMENT": "production",
+		"MAX_REQUESTS_PER_MINUTE": "100",
+		"MAX_REQUESTS_PER_HOUR": "1000",
+		"REPUTATION_THRESHOLD": "50",
+		"CHALLENGE_ENABLED": "true",
+		"BOT_DETECTION_ENABLED": "true"
+	},
 	/**
-	 * Note: Use secrets to store sensitive data.
+	 * Use secrets for sensitive data
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
+	// "secrets": {
+	//   "API_KEY": "your-secret-api-key"
+	// },
 	/**
-	 * Static Assets
+	 * Static assets
 	 * https://developers.cloudflare.com/workers/static-assets/binding/
 	 */
-	// "assets": { "directory": "./public/", "binding": "ASSETS" }
+	// "assets": { "directory": "./public/", "binding": "ASSETS" },
 	/**
-	 * Service Bindings (communicate between multiple Workers)
+	 * Service bindings
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
 	 */
-	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
+	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }],
+	/**
+	 * Smart placement
+	 * https://developers.cloudflare.com/configuration/smart-placement/#smart-placement
+	 */
+	// "placement": { "mode": "smart" }
 }

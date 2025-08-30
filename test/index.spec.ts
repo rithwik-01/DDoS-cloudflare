@@ -2,40 +2,40 @@ import { env, createExecutionContext, waitOnExecutionContext, SELF } from 'cloud
 import { describe, it, expect } from 'vitest';
 import worker from '../src';
 
-describe('Hello World user worker', () => {
-	describe('request for /message', () => {
-		it('/ responds with "Hello, World!" (unit style)', async () => {
-			const request = new Request<unknown, IncomingRequestCfProperties>('http://example.com/message');
-			// Create an empty context to pass to `worker.fetch()`.
+describe('ShieldGuard worker', () => {
+	describe('dashboard endpoint', () => {
+		it('responds with dashboard HTML (unit style)', async () => {
+			const request = new Request<unknown, IncomingRequestCfProperties>('http://example.com/');
+			// Create execution context for worker
 			const ctx = createExecutionContext();
 			const response = await worker.fetch(request, env, ctx);
-			// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
+			// Wait for promises to settle
 			await waitOnExecutionContext(ctx);
-			expect(await response.text()).toMatchInlineSnapshot(`"Hello, World!"`);
+			expect(response.headers.get('content-type')).toContain('text/html');
 		});
 
-		it('responds with "Hello, World!" (integration style)', async () => {
-			const request = new Request('http://example.com/message');
+		it('responds with dashboard HTML (integration style)', async () => {
+			const request = new Request('http://example.com/');
 			const response = await SELF.fetch(request);
-			expect(await response.text()).toMatchInlineSnapshot(`"Hello, World!"`);
+			expect(response.headers.get('content-type')).toContain('text/html');
 		});
 	});
 
-	describe('request for /random', () => {
-		it('/ responds with a random UUID (unit style)', async () => {
-			const request = new Request<unknown, IncomingRequestCfProperties>('http://example.com/random');
-			// Create an empty context to pass to `worker.fetch()`.
+	describe('status API endpoint', () => {
+		it('responds with JSON status (unit style)', async () => {
+			const request = new Request<unknown, IncomingRequestCfProperties>('http://example.com/api/status');
+			// Create execution context for worker
 			const ctx = createExecutionContext();
 			const response = await worker.fetch(request, env, ctx);
-			// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
+			// Wait for promises to settle
 			await waitOnExecutionContext(ctx);
-			expect(await response.text()).toMatch(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/);
+			expect(response.headers.get('content-type')).toContain('application/json');
 		});
 
-		it('responds with a random UUID (integration style)', async () => {
-			const request = new Request('http://example.com/random');
+		it('responds with JSON status (integration style)', async () => {
+			const request = new Request('http://example.com/api/status');
 			const response = await SELF.fetch(request);
-			expect(await response.text()).toMatch(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/);
+			expect(response.headers.get('content-type')).toContain('application/json');
 		});
 	});
 });
