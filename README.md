@@ -1,271 +1,186 @@
-# ShieldGuard - Basic DDoS Protection Worker
+# ShieldGuard - DDoS Protection Worker
 
-A simple DDoS protection implementation using Cloudflare Workers with rate limiting, IP reputation tracking, and basic attack detection.
+A comprehensive DDoS protection system built with Cloudflare Workers, featuring rate limiting, IP reputation tracking, bot detection, and real-time analytics.
 
-## Features
+## 🏗️ Architecture
 
-### Core Functionality
-- **Rate Limiting**: Configurable limits per IP address
-- **IP Reputation**: Track and score IP addresses based on behavior
-- **Bot Detection**: Simple bot detection using user agent patterns
-- **Attack Logging**: Log suspicious activity for monitoring
-- **Challenge Pages**: Basic challenge system for suspicious traffic
-- **Dashboard**: Simple web interface for monitoring
+The application has been refactored into a modular architecture for better maintainability and separation of concerns:
 
-### Protection Features
-- **Request Rate Limiting**: Per-minute and per-hour limits
-- **IP Blacklisting**: Automatic blacklisting of malicious IPs
-- **Suspicious Pattern Detection**: Basic pattern matching
-- **Real-time Monitoring**: Simple metrics and analytics
+### 📁 File Structure
 
-## Prerequisites
+```
+src/
+├── index.ts          # Main entry point and request routing
+├── types.ts          # TypeScript interfaces and type definitions
+├── protection.ts     # Core protection logic (rate limiting, reputation, bot detection)
+├── analytics.ts      # Analytics and metrics collection
+├── logging.ts        # Attack logging and severity calculation
+├── api.ts           # API endpoint handlers
+└── ui.ts            # UI components (dashboard, challenge pages)
+```
 
-- Node.js 18+ 
+### 🔧 Modules Overview
+
+#### `types.ts`
+- Contains all TypeScript interfaces and type definitions
+- `Env` - Cloudflare Worker environment configuration
+- `RequestContext` - Request metadata and context
+- `IPReputation` - IP reputation tracking data
+- `AttackLog` - Attack logging structure
+- `RateLimitData` - Rate limiting data
+- `ProtectionResult` - Protection check results
+
+#### `protection.ts` - ProtectionService
+- **IP Reputation Management**: Track and update IP reputation scores
+- **Rate Limiting**: Per-minute and per-hour request limits
+- **Bot Detection**: User agent pattern matching
+- **Suspicious Pattern Detection**: Header analysis and path checking
+- **Protection Rules**: Main protection logic coordination
+
+#### `analytics.ts` - AnalyticsService
+- **Attack Data Retrieval**: Efficient KV storage queries for attack logs
+- **Reputation Statistics**: Top threats and IP analysis
+- **Real-time Metrics**: Current protection status and statistics
+- **Hourly Data Aggregation**: Time-based attack analysis
+
+#### `logging.ts` - LoggingService
+- **Attack Logging**: Structured attack event logging
+- **Severity Calculation**: Attack type to severity mapping
+- **Recent Attacks Tracking**: Quick access to recent attack data
+
+#### `api.ts` - APIService
+- **Status API**: System health and metrics
+- **Analytics API**: Attack data and statistics
+- **Reputation API**: IP reputation queries
+- **Management APIs**: Whitelist/blacklist operations
+- **Test APIs**: Sample data generation and testing
+
+#### `ui.ts` - UIService
+- **Dashboard**: Real-time protection monitoring interface
+- **Challenge Pages**: Security verification for suspicious traffic
+- **Interactive Charts**: Attack activity visualization
+- **Responsive Design**: Mobile-friendly interface
+
+#### `index.ts` - Main Application
+- **Request Routing**: URL-based endpoint dispatching
+- **Protection Application**: Main protection logic coordination
+- **Error Handling**: Centralized error management
+- **Context Creation**: Request metadata extraction
+
+## 🚀 Features
+
+### Core Protection
+- ✅ **Rate Limiting**: Configurable per-minute and per-hour limits
+- ✅ **IP Reputation**: Dynamic scoring based on behavior
+- ✅ **Bot Detection**: User agent and pattern analysis
+- ✅ **Challenge Pages**: Interactive security verification
+- ✅ **Whitelist/Blacklist**: Manual IP management
+
+### Analytics & Monitoring
+- ✅ **Real-time Metrics**: Live protection statistics
+- ✅ **Attack Logging**: Comprehensive event tracking
+- ✅ **Hourly Analytics**: Time-based attack analysis
+- ✅ **Top Threats**: Most active malicious IPs
+- ✅ **Interactive Dashboard**: Visual monitoring interface
+
+### Developer Experience
+- ✅ **Modular Architecture**: Clean separation of concerns
+- ✅ **TypeScript**: Full type safety and IntelliSense
+- ✅ **Comprehensive Testing**: Unit and integration tests
+- ✅ **API Documentation**: Well-documented endpoints
+- ✅ **Sample Data Generation**: Testing and demonstration tools
+
+## 🛠️ Development
+
+### Prerequisites
+- Node.js 18+
 - npm or yarn
-- Cloudflare account
-- Wrangler CLI
+- Cloudflare account with Workers enabled
 
-## Installation & Setup
-
-### 1. Install Wrangler CLI
+### Setup
 ```bash
-npm install -g wrangler
-```
-
-### 2. Authenticate with Cloudflare
-```bash
-wrangler login
-```
-
-### 3. Install Dependencies
-```bash
+# Install dependencies
 npm install
-```
 
-### 4. Development
-```bash
+# Run tests
+npm run test
+
+# Start development server
 npm run dev
-```
 
-### 5. Deploy
-```bash
+# Deploy to Cloudflare
 npm run deploy
 ```
-
-## Project Structure
-
-```
-edge-computing/
-├── src/
-│   └── index.ts          # Main Worker implementation
-├── public/               # Static assets
-├── wrangler.jsonc        # Wrangler configuration
-├── package.json          # Dependencies and scripts
-└── README.md            # This file
-```
-
-## Configuration
 
 ### Environment Variables
-The following environment variables are configured in `wrangler.jsonc`:
+Configure these in your `wrangler.toml`:
 
-- `APP_NAME`: Application name
-- `APP_VERSION`: Version number
-- `ENVIRONMENT`: Deployment environment
-- `MAX_REQUESTS_PER_MINUTE`: Rate limit per minute
-- `MAX_REQUESTS_PER_HOUR`: Rate limit per hour
-- `REPUTATION_THRESHOLD`: Reputation score threshold
-- `CHALLENGE_ENABLED`: Enable challenge pages
-- `BOT_DETECTION_ENABLED`: Enable bot detection
-
-### Adding Secrets
-For sensitive data, use Wrangler secrets:
-
-```bash
-wrangler secret put API_KEY
+```toml
+[vars]
+APP_NAME = "ShieldGuard"
+APP_VERSION = "1.0.0"
+ENVIRONMENT = "production"
+MAX_REQUESTS_PER_MINUTE = "60"
+MAX_REQUESTS_PER_HOUR = "1000"
+REPUTATION_THRESHOLD = "50"
+CHALLENGE_ENABLED = "true"
+BOT_DETECTION_ENABLED = "true"
 ```
 
-## API Endpoints
+### KV Namespaces
+Required KV namespaces:
+- `IP_REPUTATION` - IP reputation data
+- `ATTACK_LOGS` - Attack event logs
+- `RATE_LIMITS` - Rate limiting counters
+
+## 📊 API Endpoints
 
 ### Dashboard
-- **URL**: `/`
-- **Method**: GET
-- **Description**: Web dashboard for monitoring protection status
+- `GET /` - Main dashboard interface
 
-### Status API
-- **URL**: `/api/status`
-- **Method**: GET
-- **Description**: Current system status and metrics
-- **Response**: JSON with system information
+### Status & Analytics
+- `GET /api/status` - System status and metrics
+- `GET /api/analytics` - Attack data and statistics
+- `GET /api/reputation?ip=<ip>` - IP reputation lookup
 
-### Analytics API
-- **URL**: `/api/analytics`
-- **Method**: GET
-- **Description**: Attack analytics and statistics
-- **Response**: JSON with attack data and metrics
+### Management
+- `POST /api/whitelist` - Whitelist an IP
+- `POST /api/blacklist` - Blacklist an IP
+- `POST /api/challenge` - Challenge response validation
 
-### Reputation API
-- **URL**: `/api/reputation?ip={ip}`
-- **Method**: GET
-- **Description**: Check IP reputation score
-- **Parameters**: `ip` - IP address to check
+### Testing & Development
+- `POST /api/test-attack` - Simulate attack for testing
+- `POST /api/generate-sample-data` - Generate test data
+- `GET /api/kv-test` - KV storage test
 
-### Challenge API
-- **URL**: `/api/challenge`
-- **Method**: POST
-- **Description**: Submit challenge response
-- **Request**: JSON with challenge answer
+## 🔍 Troubleshooting
 
-### Test Attack API
-- **URL**: `/api/test-attack`
-- **Method**: POST
-- **Description**: Simulate an attack for testing
-- **Response**: JSON with test results
+### Analytics Not Showing
+1. Check KV namespace permissions
+2. Verify environment variables are set
+3. Generate sample data using `/api/generate-sample-data`
+4. Check browser console for JavaScript errors
 
-### Whitelist API
-- **URL**: `/api/whitelist`
-- **Method**: POST
-- **Description**: Add IP to whitelist
-- **Request**: JSON with IP address
+### Protection Not Working
+1. Verify all KV namespaces are configured
+2. Check rate limiting configuration
+3. Ensure bot detection is enabled
+4. Review Cloudflare Worker logs
 
-### Blacklist API
-- **URL**: `/api/blacklist`
-- **Method**: POST
-- **Description**: Add IP to blacklist
-- **Request**: JSON with IP address
+### Performance Issues
+1. Monitor KV storage usage
+2. Check rate limiting effectiveness
+3. Review analytics query performance
+4. Consider adjusting TTL values
 
-## Protection Features
-
-### Rate Limiting
-- Per-minute and per-hour request limits
-- Configurable thresholds via environment variables
-- Automatic blocking of excessive requests
-
-### IP Reputation
-- Track IP behavior over time
-- Score-based reputation system
-- Automatic blacklisting of malicious IPs
-
-### Bot Detection
-- User agent pattern matching
-- Common bot signature detection
-- Configurable bot detection rules
-
-### Attack Logging
-- Log all suspicious activity
-- Store attack data in KV storage
-- Basic analytics and reporting
-
-## Monitoring & Debugging
-
-### Request Tracking
-Every request includes:
-- Unique request ID
-- Timestamp
-- Client IP and location
-- Request path and method
-
-### Error Handling
-Basic error handling with:
-- HTTP status codes
-- Error messages
-- Request tracking
-
-### Logging
-- Console logging for debugging
-- Request metadata
-- Attack logging
-
-## Deployment
-
-### Development
-```bash
-npm run dev
-```
-Access at: http://localhost:8787
-
-### Production
-```bash
-npm run deploy
-```
-Access at: `https://shieldguard.{your-subdomain}.workers.dev`
-
-### Custom Domain
-To use a custom domain:
-1. Add your domain to Cloudflare
-2. Configure DNS records
-3. Update `wrangler.jsonc` with custom routes
-
-## Performance
-
-### Response Times
-- **Dashboard**: ~50ms
-- **API Endpoints**: ~30ms
-- **Protected Routes**: ~20ms
-
-### Storage
-- **KV Storage**: For logs and reputation data
-- **TTL**: 24 hours for reputation, 7 days for logs
-
-## Customization
-
-### Adding New Endpoints
-1. Add route handler in `src/index.ts`
-2. Implement request/response logic
-3. Add error handling
-4. Update documentation
-
-### Environment-Specific Configuration
-```bash
-# Development
-wrangler dev --env development
-
-# Staging
-wrangler dev --env staging
-
-# Production
-wrangler deploy --env production
-```
-
-### Adding External APIs
-1. Configure API credentials as secrets
-2. Implement API client in Worker
-3. Add error handling
-4. Update environment variables
-
-## Security Features
-
-- **SSL/TLS**: Automatic HTTPS termination
-- **Rate Limiting**: Configurable request limits
-- **IP Reputation**: Track and block malicious IPs
-- **Bot Detection**: Basic bot filtering
-- **Input Validation**: Request sanitization
-
-## Learning Resources
-
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
-- [Wrangler CLI Guide](https://developers.cloudflare.com/workers/wrangler/)
-- [KV Storage](https://developers.cloudflare.com/workers/configuration/workers-kv/)
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Implement your changes
-4. Add tests if applicable
+3. Make your changes
+4. Add tests for new functionality
 5. Submit a pull request
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For issues and questions:
-- Check the [Cloudflare Workers documentation](https://developers.cloudflare.com/workers/)
-- Visit the [Cloudflare Community](https://community.cloudflare.com/)
-- Open an issue in this repository
-
----
-
-**Built with Cloudflare Workers**
