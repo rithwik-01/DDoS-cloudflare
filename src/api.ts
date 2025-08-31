@@ -77,6 +77,7 @@ export class APIService {
       return new Response(JSON.stringify(analytics, null, 2), {
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=30', // Cache for 30 seconds
           'X-Request-ID': context.requestId
         }
       });
@@ -85,6 +86,51 @@ export class APIService {
       
       return new Response(JSON.stringify({
         error: 'Analytics API failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        requestId: context.requestId,
+        timestamp: context.timestamp
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-ID': context.requestId
+        }
+      });
+    }
+  }
+
+  // Fast Analytics API - Returns only essential data for dashboard
+  static async handleFastAnalyticsAPI(request: Request, context: RequestContext, env: Env): Promise<Response> {
+    try {
+      console.log('APIService: Starting fast analytics API request');
+      
+      // Get only essential data for faster response
+      const attackData = await AnalyticsService.getRealAttackData(env);
+      
+      const fastAnalytics = {
+        recentAttacks: attackData.recentAttacks.slice(0, 5), // Only top 5
+        hourlyData: attackData.hourlyData,
+        summary: {
+          totalRequests: attackData.totalRequests,
+          blockedRequests: attackData.blockedRequests,
+          uniqueIPs: attackData.uniqueIPs
+        }
+      };
+
+      console.log('APIService: Fast analytics data prepared successfully');
+
+      return new Response(JSON.stringify(fastAnalytics, null, 2), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=15', // Cache for 15 seconds
+          'X-Request-ID': context.requestId
+        }
+      });
+    } catch (error) {
+      console.error('APIService: Fast analytics API error:', error);
+      
+      return new Response(JSON.stringify({
+        error: 'Fast analytics API failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         requestId: context.requestId,
         timestamp: context.timestamp
@@ -520,6 +566,41 @@ export class APIService {
       console.error('Analytics diagnostic failed:', error);
       return new Response(JSON.stringify({
         error: 'Diagnostic failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        requestId: context.requestId,
+        timestamp: context.timestamp
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-ID': context.requestId
+        }
+      });
+    }
+  }
+
+  // Cache Clear Endpoint
+  static async handleCacheClear(request: Request, context: RequestContext, env: Env): Promise<Response> {
+    try {
+      // Import AnalyticsService to clear cache
+      const { AnalyticsService } = await import('./analytics');
+      AnalyticsService.clearCache();
+      
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Analytics cache cleared successfully',
+        requestId: context.requestId,
+        timestamp: context.timestamp
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-ID': context.requestId
+        }
+      });
+    } catch (error) {
+      console.error('Cache clear failed:', error);
+      return new Response(JSON.stringify({
+        error: 'Cache clear failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         requestId: context.requestId,
         timestamp: context.timestamp

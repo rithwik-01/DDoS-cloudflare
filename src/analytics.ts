@@ -1,14 +1,39 @@
 import { Env, AttackLog, IPReputation } from './types';
 
+// Cache for analytics data
+interface AnalyticsCache {
+  data: any;
+  timestamp: number;
+  ttl: number;
+}
+
+const analyticsCache: AnalyticsCache = {
+  data: null,
+  timestamp: 0,
+  ttl: 30000 // 30 seconds cache
+};
+
+const metricsCache: AnalyticsCache = {
+  data: null,
+  timestamp: 0,
+  ttl: 10000 // 10 seconds cache
+};
+
 export class AnalyticsService {
-  // Get attack data from KV storage - Improved version
+  // Get attack data from KV storage - Optimized version with caching
   static async getRealAttackData(env: Env): Promise<any> {
+    const now = Date.now();
+    
+    // Check cache first
+    if (analyticsCache.data && (now - analyticsCache.timestamp) < analyticsCache.ttl) {
+      console.log('AnalyticsService: Returning cached attack data');
+      return analyticsCache.data;
+    }
+    
     try {
-      // Add debug logging for production troubleshooting
       console.log('AnalyticsService: Starting getRealAttackData');
       
       // Get attack logs from the last 24 hours
-      const now = Date.now();
       const oneDayAgo = now - (24 * 60 * 60 * 1000);
       
       // Initialize data structures
@@ -25,26 +50,24 @@ export class AnalyticsService {
       let totalRequests = 0;
       let blockedRequests = 0;
       
-      // Use a more efficient approach - list keys with prefix and process in batches
+      // Use batch processing with limits
       let cursor: string | undefined;
-      const processedKeys = new Set<string>();
+      let processedCount = 0;
+      const maxProcessed = 1000; // Limit to prevent excessive processing
       
       console.log('AnalyticsService: Listing attack logs from KV');
       
       do {
         const listResult = await env.ATTACK_LOGS.list({
           prefix: 'attack_',
-          limit: 1000,
+          limit: 100,
           cursor
         });
         
         console.log(`AnalyticsService: Found ${listResult.keys.length} keys in batch`);
         
-        // Process each log entry
-        for (const key of listResult.keys) {
-          if (processedKeys.has(key.name)) continue;
-          processedKeys.add(key.name);
-          
+        // Process keys in parallel for better performance
+        const batchPromises = listResult.keys.map(async (key) => {
           try {
             const attackData = await env.ATTACK_LOGS.get(key.name, { type: 'json' }) as AttackLog;
             
@@ -70,19 +93,25 @@ export class AnalyticsService {
                 // Track attack types
                 attackTypes[attackData.attackType] = (attackTypes[attackData.attackType] || 0) + 1;
                 
-                // Add to recent attacks
-                recentAttacks.push(attackData);
+                // Add to recent attacks (limit to 20 for performance)
+                if (recentAttacks.length < 20) {
+                  recentAttacks.push(attackData);
+                }
               }
             }
           } catch (error) {
             console.error(`Error processing attack log ${key.name}:`, error);
           }
-        }
+        });
         
+        // Wait for batch to complete
+        await Promise.all(batchPromises);
+        
+        processedCount += listResult.keys.length;
         cursor = listResult.list_complete ? undefined : listResult.cursor;
-      } while (cursor && processedKeys.size < 5000); // Limit to prevent infinite loops
+      } while (cursor && processedCount < maxProcessed);
       
-      console.log(`AnalyticsService: Processed ${processedKeys.size} total keys`);
+      console.log(`AnalyticsService: Processed ${processedCount} total keys`);
       console.log(`AnalyticsService: Found ${recentAttacks.length} recent attacks`);
       
       // Sort recent attacks by timestamp
@@ -97,6 +126,10 @@ export class AnalyticsService {
         recentAttacks: latestAttacks,
         hourlyData
       };
+      
+      // Update cache
+      analyticsCache.data = result;
+      analyticsCache.timestamp = now;
       
       console.log('AnalyticsService: Returning analytics data:', {
         totalRequests: result.totalRequests,
@@ -119,27 +152,27 @@ export class AnalyticsService {
     }
   }
 
-  // Get reputation statistics - Improved version
+  // Get reputation statistics - Optimized version
   static async getReputationStats(env: Env): Promise<any> {
     try {
-      // Get IP reputation data from KV storage
+      // Get IP reputation data from KV storage with limits
       const topThreats: Array<{ ip: string; attacks: number; score: number }> = [];
       
-      // List reputation entries
+      // List reputation entries with limit
       let cursor: string | undefined;
-      const processedKeys = new Set<string>();
+      let processedCount = 0;
+      const maxProcessed = 500; // Limit for performance
       
       do {
         const listResult = await env.IP_REPUTATION.list({
           prefix: 'reputation_',
-          limit: 1000,
+          limit: 100,
           cursor
         });
         
         // Process each reputation record
         for (const key of listResult.keys) {
-          if (processedKeys.has(key.name)) continue;
-          processedKeys.add(key.name);
+          if (processedCount >= maxProcessed) break;
           
           try {
             const reputationData = await env.IP_REPUTATION.get(key.name, { type: 'json' }) as IPReputation;
@@ -155,10 +188,12 @@ export class AnalyticsService {
           } catch (error) {
             console.error(`Error processing reputation ${key.name}:`, error);
           }
+          
+          processedCount++;
         }
         
         cursor = listResult.list_complete ? undefined : listResult.cursor;
-      } while (cursor && processedKeys.size < 1000); // Limit to prevent infinite loops
+      } while (cursor && processedCount < maxProcessed);
       
       // Sort by attack count and take top 10
       topThreats.sort((a, b) => b.attacks - a.attacks);
@@ -170,31 +205,38 @@ export class AnalyticsService {
     }
   }
 
-  // Get current metrics - Improved version
+  // Get current metrics - Optimized version with caching
   static async getRealMetrics(env: Env): Promise<any> {
+    const now = Date.now();
+    
+    // Check cache first
+    if (metricsCache.data && (now - metricsCache.timestamp) < metricsCache.ttl) {
+      console.log('AnalyticsService: Returning cached metrics');
+      return metricsCache.data;
+    }
+    
     try {
-      // Get metrics from KV storage
-      const now = Date.now();
+      // Get metrics from KV storage with optimized approach
       const oneMinuteAgo = now - (60 * 1000);
       
       let requestsPerMinute = 0;
       let blockedRequests = 0;
       let activeThreats = 0;
       
-      // Count recent requests using a more efficient approach
+      // Count recent requests with limits
       let cursor: string | undefined;
-      const processedKeys = new Set<string>();
+      let processedCount = 0;
+      const maxProcessed = 500; // Limit for metrics
       
       do {
         const listResult = await env.ATTACK_LOGS.list({
           prefix: 'attack_',
-          limit: 1000,
+          limit: 100,
           cursor
         });
         
         for (const key of listResult.keys) {
-          if (processedKeys.has(key.name)) continue;
-          processedKeys.add(key.name);
+          if (processedCount >= maxProcessed) break;
           
           try {
             const attackData = await env.ATTACK_LOGS.get(key.name, { type: 'json' }) as AttackLog;
@@ -213,26 +255,26 @@ export class AnalyticsService {
           } catch (error) {
             console.error(`Error processing metric ${key.name}:`, error);
           }
+          
+          processedCount++;
         }
         
         cursor = listResult.list_complete ? undefined : listResult.cursor;
-      } while (cursor && processedKeys.size < 2000); // Limit for metrics
+      } while (cursor && processedCount < maxProcessed);
       
-      // Count active threats
+      // Count active threats with limits
       cursor = undefined;
-      processedKeys.clear();
+      processedCount = 0;
       
-      let reputationListResult;
       do {
-        reputationListResult = await env.IP_REPUTATION.list({
+        const reputationListResult = await env.IP_REPUTATION.list({
           prefix: 'reputation_',
-          limit: 1000,
+          limit: 100,
           cursor
         });
         
         for (const key of reputationListResult.keys) {
-          if (processedKeys.has(key.name)) continue;
-          processedKeys.add(key.name);
+          if (processedCount >= maxProcessed) break;
           
           try {
             const reputationData = await env.IP_REPUTATION.get(key.name, { type: 'json' }) as IPReputation;
@@ -243,17 +285,25 @@ export class AnalyticsService {
           } catch (error) {
             console.error(`Error processing reputation for metrics ${key.name}:`, error);
           }
+          
+          processedCount++;
         }
         
         cursor = reputationListResult.list_complete ? undefined : reputationListResult.cursor;
-      } while (cursor && processedKeys.size < 1000);
+      } while (cursor && processedCount < maxProcessed);
       
-      return {
+      const result = {
         requestsPerMinute,
         blockedRequests,
         activeThreats,
         protectionLevel: activeThreats > 10 ? 'high' : activeThreats > 5 ? 'medium' : 'low'
       };
+      
+      // Update cache
+      metricsCache.data = result;
+      metricsCache.timestamp = now;
+      
+      return result;
     } catch (error) {
       console.error('Error getting real metrics:', error);
       return {
@@ -263,5 +313,14 @@ export class AnalyticsService {
         protectionLevel: 'high'
       };
     }
+  }
+
+  // Clear cache method for testing
+  static clearCache(): void {
+    analyticsCache.data = null;
+    analyticsCache.timestamp = 0;
+    metricsCache.data = null;
+    metricsCache.timestamp = 0;
+    console.log('AnalyticsService: Cache cleared');
   }
 }

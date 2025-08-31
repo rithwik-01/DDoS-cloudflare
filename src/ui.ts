@@ -302,11 +302,18 @@ export class UIService {
             <button onclick="generateSampleData()" class="button">Generate Sample Data</button>
             <button onclick="refreshMetrics()" class="button">Refresh Metrics</button>
             <button onclick="loadAttackChart()" class="button">Refresh Chart</button>
+            <button onclick="clearCache()" class="button">Clear Cache</button>
         </div>
     </div>
 
     <script>
         let attackChart = null;
+        let lastMetricsUpdate = 0;
+        let lastChartUpdate = 0;
+        let lastAttacksUpdate = 0;
+        let isLoadingMetrics = false;
+        let isLoadingChart = false;
+        let isLoadingAttacks = false;
         
         // Initialize the attack chart
         function initAttackChart() {
@@ -365,10 +372,16 @@ export class UIService {
             });
         }
         
-        // Load attack chart data
+        // Load attack chart data with throttling
         async function loadAttackChart() {
+            const now = Date.now();
+            if (isLoadingChart || (now - lastChartUpdate) < 30000) return; // 30 second throttle
+            
+            isLoadingChart = true;
+            lastChartUpdate = now;
+            
             try {
-                const response = await fetch('/api/analytics');
+                const response = await fetch('/api/fast-analytics');
                 const data = await response.json();
                 
                 if (!data.hourlyData) {
@@ -397,17 +410,25 @@ export class UIService {
                     attackChart.data.labels = labels;
                     attackChart.data.datasets[0].data = attackData;
                     attackChart.data.datasets[1].data = blockedData;
-                    attackChart.update();
+                    attackChart.update('none'); // Use 'none' for better performance
                 }
             } catch (error) {
                 console.error('Failed to load attack chart:', error);
+            } finally {
+                isLoadingChart = false;
             }
         }
         
-        // Load recent attacks
+        // Load recent attacks with throttling
         async function loadRecentAttacks() {
+            const now = Date.now();
+            if (isLoadingAttacks || (now - lastAttacksUpdate) < 15000) return; // 15 second throttle
+            
+            isLoadingAttacks = true;
+            lastAttacksUpdate = now;
+            
             try {
-                const response = await fetch('/api/analytics');
+                const response = await fetch('/api/fast-analytics');
                 const data = await response.json();
                 
                 const attacksContainer = document.getElementById('recentAttacks');
@@ -425,19 +446,19 @@ export class UIService {
             } catch (error) {
                 console.error('Failed to load recent attacks:', error);
                 document.getElementById('recentAttacks').innerHTML = '<div class="loading">Failed to load attacks</div>';
+            } finally {
+                isLoadingAttacks = false;
             }
         }
         
-        // Refresh metrics every 5 seconds
-        setInterval(refreshMetrics, 5000);
-        
-        // Refresh chart every 30 seconds
-        setInterval(loadAttackChart, 30000);
-        
-        // Refresh attacks every 10 seconds
-        setInterval(loadRecentAttacks, 10000);
-        
+        // Refresh metrics with throttling
         async function refreshMetrics() {
+            const now = Date.now();
+            if (isLoadingMetrics || (now - lastMetricsUpdate) < 10000) return; // 10 second throttle
+            
+            isLoadingMetrics = true;
+            lastMetricsUpdate = now;
+            
             try {
                 const response = await fetch('/api/status');
                 const data = await response.json();
@@ -448,6 +469,8 @@ export class UIService {
                 document.getElementById('protectionLevel').textContent = data.metrics.protectionLevel;
             } catch (error) {
                 console.error('Failed to refresh metrics:', error);
+            } finally {
+                isLoadingMetrics = false;
             }
         }
         
@@ -471,12 +494,43 @@ export class UIService {
             }
         }
         
+        // Clear cache
+        async function clearCache() {
+            try {
+                const response = await fetch('/api/cache-clear');
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Cache cleared successfully! Refreshing dashboard...');
+                    // Force refresh all data
+                    lastMetricsUpdate = 0;
+                    lastChartUpdate = 0;
+                    lastAttacksUpdate = 0;
+                    refreshMetrics();
+                    loadAttackChart();
+                    loadRecentAttacks();
+                } else {
+                    alert('Failed to clear cache: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Failed to clear cache:', error);
+                alert('Failed to clear cache');
+            }
+        }
+        
         // Initialize everything when page loads
         document.addEventListener('DOMContentLoaded', function() {
             initAttackChart();
+            
+            // Initial load
             refreshMetrics();
             loadAttackChart();
             loadRecentAttacks();
+            
+            // Set up intervals with longer intervals for better performance
+            setInterval(refreshMetrics, 30000); // 30 seconds
+            setInterval(loadAttackChart, 60000); // 1 minute
+            setInterval(loadRecentAttacks, 45000); // 45 seconds
         });
     </script>
 </body>

@@ -47,6 +47,9 @@ export default {
         case '/api/analytics':
           return await APIService.handleAnalyticsAPI(request, context, env);
         
+        case '/api/fast-analytics':
+          return await APIService.handleFastAnalyticsAPI(request, context, env);
+        
         case '/api/reputation':
           return await APIService.handleReputationAPI(request, context, env);
         
@@ -70,6 +73,9 @@ export default {
         
         case '/api/analytics-diagnostic':
           return await APIService.handleAnalyticsDiagnostic(request, context, env);
+        
+        case '/api/cache-clear':
+          return await APIService.handleCacheClear(request, context, env);
         
         default:
           // Apply protection to all other routes
